@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from fast_zero.app import app
 from fast_zero.database import get_session
 from fast_zero.models import User, table_registry
+from fast_zero.security import get_password_hash
 
 
 # 装饰器，作用是每个测试得到全新的数据库环境
@@ -52,13 +53,17 @@ def client(session):
 
 @pytest.fixture
 def user(session):
+    password = "test123"
     user = User(
         username="Teste",
         email="teste@example.com",
-        password="test123")
+        # 需要进行加密
+        password=get_password_hash("test123"))
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    user.clean_password = password
 
     return user
 
