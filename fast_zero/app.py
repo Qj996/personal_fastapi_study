@@ -12,6 +12,7 @@ from fast_zero.models import User
 from fast_zero.schemas import Token, UserList, UserPublic, UserSchemas
 from fast_zero.security import (
     create_assess_token,
+    get_current_user,
     get_password_hash,
     verify_password,
 )
@@ -80,7 +81,7 @@ def create_user(user: UserSchemas, session=Depends(get_session)):
     if db_user:
         if db_user.username == user.username:
             raise HTTPException(
-                status_code=HTTPStatus.CONFLICT,   # 409冲突
+                status_code=HTTPStatus.CONFLICT,  # 409冲突
                 detail="Username has already exists"
             )
         elif db_user.email == user.email:
@@ -90,6 +91,7 @@ def create_user(user: UserSchemas, session=Depends(get_session)):
             )
 
     hash_password = get_password_hash(user.password)
+
     db_user = User(
         username=user.username,
         email=user.email,
@@ -116,15 +118,17 @@ def read_users(
 def update_user(
         user_id: int,
         user: UserSchemas,
-        session: Session = Depends(get_session)
+        session: Session = Depends(get_session),
+        current_user: User = Depends(get_current_user)
 ):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Not enough permission"
+        )
     # 但是更新存在一个问题，就是之前我们设置了username和email是唯一的
     db_user = session.scalar(select(User).where(User.id == user_id))
-    if not db_user:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail="User not found"
-        )
+
     hash_password = get_password_hash(
         user.password
     )
@@ -145,17 +149,16 @@ def update_user(
 @app.delete("/users/{user_id}")
 def delete_user(
         user_id: int,
-        session: Session = Depends(get_session)
+        session: Session = Depends(get_session),
+        current_user: User = Depends(get_current_user)
 ):
-    db_user = session.scalar(select(User).where(user_id == User.id))
-
-    if not db_user:
+    if user_id != current_user.id:
         raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail='User not found'
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Not enough permission"
         )
 
-    session.delete(db_user)
+    session.delete(current_user)
     session.commit()
 
     return {"message": "User has deleted"}
