@@ -53,12 +53,13 @@ def client(session):
 
 @pytest.fixture
 def user(session):
-    password = "test123"
+    password = 'test123'
     user = User(
-        username="Teste",
-        email="teste@example.com",
+        username='Teste',
+        email='teste@example.com',
         # 需要进行加密
-        password=get_password_hash("test123"))
+        password=get_password_hash('test123'),
+    )
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -68,18 +69,27 @@ def user(session):
     return user
 
 
+@pytest.fixture
+def token(client, user):
+    response = client.post(
+        '/auth/token',
+        data={'username': user.email, 'password': user.clean_password},
+    )
+    return response.json()['access_token']
+
+
 @contextmanager
 def _mock_db_time(*, model, time=datetime(2024, 1, 1)):
 
     def fake_time_hook(mapper, connection, target):
-        if hasattr(target, "created_at"):
+        if hasattr(target, 'created_at'):
             target.created_at = time
 
-    event.listen(model, "before_insert", fake_time_hook)
+    event.listen(model, 'before_insert', fake_time_hook)
 
     yield time
 
-    event.remove(model, "before_insert", fake_time_hook)
+    event.remove(model, 'before_insert', fake_time_hook)
 
 
 @pytest.fixture

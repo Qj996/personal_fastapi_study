@@ -8,7 +8,7 @@ table_registry = registry()
 
 @mapped_as_dataclass(table_registry)
 class User:
-    __tablename__ = "user"
+    __tablename__ = 'user'
 
     id: Mapped[int] = mapped_column(init=False, primary_key=True)
     username: Mapped[str] = mapped_column(unique=True)

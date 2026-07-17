@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserPublic(BaseModel):
@@ -18,7 +18,7 @@ class MyResponse(BaseModel):
 class UserSchemas(BaseModel):
     username: str
     email: EmailStr
-    password: str    # 确保收到的是一个邮件
+    password: str  # 确保收到的是一个邮件
 
 
 class UserDb(UserSchemas):
@@ -32,3 +32,9 @@ class UserList(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class FilterPage(BaseModel):
+    # 防止传参为负数
+    offset: int = Field(0, ge=0)
+    limit: int = Field(100, ge=1)
