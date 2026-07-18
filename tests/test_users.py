@@ -85,8 +85,6 @@ def test_put_user(client, user):
         },
         headers={'Authorization': f'Bearer {token}'},
     )
-    print(response.status_code)
-    print(response.json())   # 关键：打印错误详情
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {
         'username': 'bob',

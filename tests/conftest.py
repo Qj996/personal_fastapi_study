@@ -2,9 +2,10 @@ from contextlib import contextmanager
 from datetime import datetime
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from fast_zero.app import app
@@ -14,32 +15,34 @@ from fast_zero.security import get_password_hash
 
 
 # 装饰器，作用是每个测试得到全新的数据库环境
-@pytest.fixture
-def session():
+@pytest_asyncio.fixture
+async def session():
     """提供 SQLite 内存数据库的测试会话，测试结束自动清理。
 
     StaticPool 确保所有连接复用同一个 :memory: 数据库，
     check_same_thread=False 允许跨线程访问（TestClient 需要）。
     """
-    engine = create_engine(
-        'sqlite:///:memory:',
+    engine = create_async_engine(
+        #  修改为异步的
+        'sqlite+aiosqlite:///:memory:',
         # 不同线程之间可以实现共享
         connect_args={'check_same_thread': False},
         # 所有请求使用同一连接
         poolclass=StaticPool,
     )
-    table_registry.metadata.create_all(engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(table_registry.metadata.create_all)
 
-    with Session(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
 
-    table_registry.metadata.drop_all(engine)
-    engine.dispose()
+    async with engine.begin() as conn:
+        await conn.run_sync(table_registry.metadata.drop_all)
 
 
 @pytest.fixture
 def client(session):
-    def get_session_override():
+    async def get_session_override():
         return session
 
     # `dependency_overrides` 是 FastAPI 合法属性，IDE 误报可忽略
@@ -51,8 +54,8 @@ def client(session):
     app.dependency_overrides.clear()  # type: ignore[attr-defined]
 
 
-@pytest.fixture
-def user(session):
+@pytest_asyncio.fixture
+async def user(session):
     password = 'test123'
     user = User(
         username='Teste',
@@ -61,8 +64,8 @@ def user(session):
         password=get_password_hash('test123'),
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
 
     user.clean_password = password
 

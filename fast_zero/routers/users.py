@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fast_zero.database import get_session
 from fast_zero.models import User
@@ -19,7 +19,7 @@ from fast_zero.security import (
     get_password_hash,
 )
 
-Session = Annotated[Session, Depends(get_session)]
+T_Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 # 设定为前缀，然后在app.py里面注册
 router = APIRouter(prefix='/users', tags=['users'])
@@ -29,9 +29,9 @@ router = APIRouter(prefix='/users', tags=['users'])
     '/create_user', status_code=HTTPStatus.CREATED, response_model=UserPublic
 )
 # 依赖注入
-def create_user(user: UserSchemas, session: Session):
+async def create_user(user: UserSchemas, session: T_Session):
     # 查询这个用户是否存在
-    db_user = session.scalar(
+    db_user = await session.scalar(
         select(User).where(
             (User.username == user.username) | (User.email == user.email)
         )
@@ -56,25 +56,30 @@ def create_user(user: UserSchemas, session: Session):
         username=user.username, email=user.email, password=hash_password
     )
     session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
+    await session.commit()
+    await session.refresh(db_user)
 
     return db_user
 
 
 @router.get('/', response_model=UserList)
-def read_users(session: Session, filter_users: Annotated[FilterPage, Query()]):
-    users = session.scalars(
-        select(User).offset(filter_users.offset).limit(filter_users.limit)
+async def read_users(
+    session: T_Session, filter_users: Annotated[FilterPage, Query()]
+):
+    # 这里需要将俩部分拆开
+    users = (
+        await session.scalars(
+            select(User).offset(filter_users.offset).limit(filter_users.limit)
+        )
     ).all()
     return {'users': users}
 
 
 @router.put('/{user_id}', response_model=UserPublic)
-def update_user(
+async def update_user(
     user_id: int,
     user: UserSchemas,
-    session: Session,
+    session: T_Session,
     current_user: CurrentUser,
 ):
     if current_user.id != user_id:
@@ -82,15 +87,15 @@ def update_user(
             status_code=HTTPStatus.FORBIDDEN, detail='Not enough permission'
         )
     # 但是更新存在一个问题，就是之前我们设置了username和email是唯一的
-    db_user = session.scalar(select(User).where(User.id == user_id))
+    db_user = await session.scalar(select(User).where(User.id == user_id))
 
     hash_password = get_password_hash(user.password)
     try:
         db_user.username = user.username
         db_user.email = user.email
         db_user.password = hash_password
-        session.commit()
-        session.refresh(db_user)
+        await session.commit()
+        await session.refresh(db_user)
     except IntegrityError:
         raise HTTPException(
             status_code=HTTPStatus.CONFLICT,
@@ -100,9 +105,9 @@ def update_user(
 
 
 @router.delete('/{user_id}')
-def delete_user(
+async def delete_user(
     user_id: int,
-    session: Session,
+    session: T_Session,
     current_user: CurrentUser,
 ):
     if user_id != current_user.id:
@@ -110,7 +115,7 @@ def delete_user(
             status_code=HTTPStatus.FORBIDDEN, detail='Not enough permission'
         )
 
-    session.delete(current_user)
-    session.commit()
+    await session.delete(current_user)
+    await session.commit()
 
     return {'message': 'User has deleted'}
