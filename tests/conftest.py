@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import datetime
 
+import factory
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
@@ -12,6 +13,16 @@ from fast_zero.app import app
 from fast_zero.database import get_session
 from fast_zero.models import User, table_registry
 from fast_zero.security import get_password_hash
+
+
+# 创建一个用户对象工厂，供给测试使用
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    username = factory.Sequence(lambda n: f"test{n}")
+    email = factory.LazyAttribute(lambda obj: f"{obj.username}@test.com")
+    password = factory.LazyAttribute(lambda obj: f"{obj.usernam}@example.com")
 
 
 # 装饰器，作用是每个测试得到全新的数据库环境
@@ -56,13 +67,26 @@ def client(session):
 
 @pytest_asyncio.fixture
 async def user(session):
-    password = 'test123'
-    user = User(
-        username='Teste',
-        email='teste@example.com',
-        # 需要进行加密
-        password=get_password_hash('test123'),
-    )
+    password = 'testtest'
+    # 修改为用户工厂创建，来进行测试
+    user = UserFactory(password=get_password_hash(
+        password
+        ))
+
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    user.clean_password = password
+
+    return user
+
+
+@pytest_asyncio.fixture
+async def other_user(session):
+    password = "testtest"
+    user = UserFactory(password=get_password_hash(password))
+
     session.add(user)
     await session.commit()
     await session.refresh(user)
