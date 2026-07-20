@@ -16,10 +16,10 @@ from fast_zero.settings import Settings
 settings = Settings()
 pwd_context = PasswordHash.recommended()
 
-#新增刷新token的链接
+# 新增刷新token的链接
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl='auth/token',
-    refreshUrl='auth/refresh_token')
+    tokenUrl='auth/token', refreshUrl='auth/refresh_token'
+)
 
 
 def create_assess_token(data: dict):

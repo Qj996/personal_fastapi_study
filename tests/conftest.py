@@ -20,9 +20,9 @@ class UserFactory(factory.Factory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f"test{n}")
-    email = factory.LazyAttribute(lambda obj: f"{obj.username}@test.com")
-    password = factory.LazyAttribute(lambda obj: f"{obj.usernam}@example.com")
+    username = factory.Sequence(lambda n: f'test{n}')
+    email = factory.LazyAttribute(lambda obj: f'{obj.username}@test.com')
+    password = factory.LazyAttribute(lambda obj: f'{obj.usernam}@example.com')
 
 
 # 装饰器，作用是每个测试得到全新的数据库环境
@@ -69,9 +69,7 @@ def client(session):
 async def user(session):
     password = 'testtest'
     # 修改为用户工厂创建，来进行测试
-    user = UserFactory(password=get_password_hash(
-        password
-        ))
+    user = UserFactory(password=get_password_hash(password))
 
     session.add(user)
     await session.commit()
@@ -84,7 +82,7 @@ async def user(session):
 
 @pytest_asyncio.fixture
 async def other_user(session):
-    password = "testtest"
+    password = 'testtest'
     user = UserFactory(password=get_password_hash(password))
 
     session.add(user)

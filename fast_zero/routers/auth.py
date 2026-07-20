@@ -48,8 +48,8 @@ async def login_for_access_token(
 
 
 # 新增刷新token的功能
-@router.post("/refresh_token", response_model=Token)
+@router.post('/refresh_token', response_model=Token)
 async def refresh_access_token(user: CurrentUser):
     new_access_token = create_assess_token(data={'sub': user.email})
 
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    return {'access_token': new_access_token, 'token_type': 'bearer'}
